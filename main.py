@@ -30,6 +30,32 @@ async def createFilm(film : Film):
         print(res)
         return res
 
+@app.get("/films")
+async def getFilms():
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM Film")
+        res = cursor.fetchall()
+        print(res)
+        return res
+
+@app.get("/films/{id}")
+async def getFilm(id: int):
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT * FROM Film WHERE Id={id}")
+        res = cursor.fetchone()
+        print(res)
+        return res
+
+@app.get("/genres")
+async def getGenres():
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM Genre")
+        res = cursor.fetchall()
+        print(res)
+        return res
 
 if __name__ == "__main__":
     import uvicorn

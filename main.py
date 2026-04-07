@@ -31,10 +31,10 @@ async def createFilm(film : Film):
         return res
 
 @app.get("/films")
-async def getFilms():
+async def getFilms(per_page: int = 10, page: int = 1):
     with get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM Film")
+        cursor.execute(f"SELECT * FROM Film LIMIT {per_page} OFFSET {(page - 1) * per_page}")
         res = cursor.fetchall()
         print(res)
         return res
@@ -56,6 +56,9 @@ async def getGenres():
         res = cursor.fetchall()
         print(res)
         return res
+
+
+
 
 if __name__ == "__main__":
     import uvicorn

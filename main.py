@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from db import get_connection
 
@@ -34,7 +34,7 @@ async def register(user : user):
             """)
         res = cursor.fetchone()
         print(res)
-        return res
+        return [dict(row) for row in res]
 
 
 @app.post("/film")
@@ -47,7 +47,7 @@ async def createFilm(film : Film):
             """)
         res = cursor.fetchone()
         print(res)
-        return res
+        return [dict(row) for row in res]
 
 @app.get("/films")
 async def getFilms( page: int = 1, per_page: int = 10, genre : int | None = None):
@@ -59,7 +59,7 @@ async def getFilms( page: int = 1, per_page: int = 10, genre : int | None = None
             cursor.execute(f"SELECT * FROM Film ORDER BY dateSortie DESC LIMIT {per_page} OFFSET {(page - 1) * per_page} ")
         res = cursor.fetchall()
         print(res)
-        return res
+        return [dict(row) for row in res]
 
 @app.get("/films/{id}")
 async def getFilm(id: int):
@@ -67,8 +67,10 @@ async def getFilm(id: int):
         cursor = conn.cursor()
         cursor.execute(f"SELECT * FROM Film WHERE Id={id}")
         res = cursor.fetchone()
+        if res is None:
+            raise HTTPException(status_code=404, detail="Film non trouvé")
         print(res)
-        return res
+        return [dict(row) for row in res]
 
 @app.get("/genres")
 async def getGenres():
@@ -77,7 +79,7 @@ async def getGenres():
         cursor.execute("SELECT * FROM Genre")
         res = cursor.fetchall()
         print(res)
-        return res
+        return [dict(row) for row in res]
 
 
 

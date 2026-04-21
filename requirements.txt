@@ -3,4 +3,3 @@ uvicorn
 pydantic
 db
 pyjwt
-token

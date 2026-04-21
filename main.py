@@ -1,6 +1,6 @@
 import token
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 import jwt
 from pydantic import BaseModel
 from db import get_connection

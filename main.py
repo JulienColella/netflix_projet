@@ -36,25 +36,27 @@ async def get_films(page: int = 1, per_page: int = 10, genre: int | None = None)
         offset = (page - 1) * per_page
         
         # Filtre Genre
-        where_clause = f"WHERE Genre_ID = {genre_id}" if genre_id else ""
+        where_clause = f"WHERE Genre_ID = {genre}" if genre is not None else ""
         
-        # Compter le total pour les tests
+        
         cursor.execute(f"SELECT COUNT(*) as total FROM Film {where_clause}")
         total = cursor.fetchone()["total"]
         
-        # Récupérer les données
+        
         cursor.execute(f"""
             SELECT * FROM Film {where_clause} 
             ORDER BY DateSortie DESC LIMIT {per_page} OFFSET {offset}
         """)
+        
+
         res = cursor.fetchall()
         if not res:
             raise HTTPException(status_code=404, detail="Aucun film trouvé")
         return {
             "data": [dict(row) for row in res],
-            "total": total,
             "page": page,
-            "per_page": per_page
+            "per_page": per_page,
+            "total": total
         }
 
 
@@ -76,6 +78,7 @@ async def register(user: User):
         if cursor.fetchone():
             raise HTTPException(status_code=409, detail="Pseudo déjà utilisé")
 
+
 #ajout d'un nouvel utilisateur dans la base de données
         cursor.execute(f"""
             INSERT INTO Utilisateur (AdresseMail, Pseudo, MotDePasse)  
@@ -96,7 +99,7 @@ async def login(user: User):
             SELECT * FROM Utilisateur 
             WHERE AdresseMail='{user.email}' AND MotDePasse='{user.password}'
         """)
-        res = cursor.fetchone()
+        c
         #si email ou mdp vide on refuse la connexion
         if not user.email or not user.password:
             raise HTTPException(status_code=422, detail="Email et mot de passe sont requis")
@@ -141,6 +144,36 @@ async def get_films_by_genre(id: int):
         cursor.execute(f"SELECT * FROM Film WHERE Genre_ID = {id}")
         res = cursor.fetchall()
         return [dict(row) for row in res]
+
+
+@app.get("/genres")
+async def get_genres():
+    """Liste de tous les genres disponibles."""
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM Genre order by Type ASC")
+        res = cursor.fetchall()
+        return [dict(row) for row in res]
+
+@app.get("/films/{films_id}")
+async def get_film(films_id: int):
+    """Détails d'un film spécifique."""
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT * FROM Film WHERE ID = {films_id}")
+        res = cursor.fetchone()
+        if res:
+            return dict(res)
+        else:
+            raise HTTPException(status_code=404, detail="Film non trouvé")
+        
+
+
+
+
+
+
+
 
 @app.get("/films/populaires")
 async def get_popular():

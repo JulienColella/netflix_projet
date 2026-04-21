@@ -30,13 +30,13 @@ def ping():
     return {"message": "pong"}
 
 @app.get("/films")
-async def get_films(page: int = 1, per_page: int = 10, genre: int | None = None):
+async def get_films(page: int = 1, per_page: int = 20, genre_ID: int | None = None):
     with get_connection() as conn:
         cursor = conn.cursor()
         offset = (page - 1) * per_page
         
         # Filtre Genre
-        where_clause = f"WHERE Genre_ID = {genre}" if genre is not None else ""
+        where_clause = f"WHERE Genre_ID = {genre_ID}" if genre_ID is not None else ""
         
         
         cursor.execute(f"SELECT COUNT(*) as total FROM Film {where_clause}")
@@ -50,8 +50,7 @@ async def get_films(page: int = 1, per_page: int = 10, genre: int | None = None)
         
 
         res = cursor.fetchall()
-        if not res:
-            raise HTTPException(status_code=404, detail="Aucun film trouvé")
+        
         return {
             "data": [dict(row) for row in res],
             "page": page,

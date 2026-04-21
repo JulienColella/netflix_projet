@@ -1,7 +1,11 @@
+import token
+
 from fastapi import FastAPI, HTTPException
+import jwt
 from pydantic import BaseModel
 from db import get_connection
-#import pyjwt
+import jwt
+
 app = FastAPI()
 
 
@@ -23,6 +27,12 @@ class Visionnage(BaseModel):
     user_id: int
     film_id: int
 
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+
+class Preference(BaseModel):
+    genre_id: int
 
 
 @app.get("/ping")
@@ -83,11 +93,11 @@ async def register(user: User):
             INSERT INTO Utilisateur (AdresseMail, Pseudo, MotDePasse)  
             VALUES('{user.email}', '{user.pseudo}', '{user.password}')
         """)
-#retour d'un JWT pour l'authentification future 
-        #token = pyjwt.encode({"user_id": cursor.lastrowid}, "secret", algorithm="HS256")
         conn.commit()
-        return {"message": "Utilisateur créé"}
-
+        token = jwt.encode({"sub": user.email}, SECRET_KEY, algorithm="HS256")
+        return TokenResponse(access_token=token, token_type="bearer")
+        
+        
 
 @app.post("/auth/login")
 async def login(user: User):
@@ -103,7 +113,9 @@ async def login(user: User):
         if not user.email or not user.password:
             raise HTTPException(status_code=422, detail="Email et mot de passe sont requis")
         if res:
-            return {"message": "Connexion réussie", "user_id": res["ID"]}
+            token = jwt.encode({"sub": user.email}, SECRET_KEY,algorithm="HS256")
+            return TokenResponse(access_token=token, token_type="bearer")
+            
         else:
             raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
 
@@ -190,6 +202,55 @@ async def get_popular():
         """)
         res = cursor.fetchall()
         return [dict(row) for row in res]
+
+
+@app.post("/preferences", status_code=201)
+async def add_preference(preference : Preference, authorization: str = Header(...)):
+    """Ajouter un genre préféré pour un utilisateur."""
+    token = authorization.split(" ")[1]  # Extraire le token du header
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        user_email = payload.get("sub")
+        if not user_email:
+            raise HTTPException(status_code=401, detail="Token invalide")
+        
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            # Récupérer l'ID de l'utilisateur à partir de son email
+            cursor.execute(f"SELECT ID FROM Utilisateur WHERE AdresseMail='{user_email}'")
+            user = cursor.fetchone()
+            if not user:
+                raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+            
+            user_id = user["ID"]
+            # Ajouter la préférence dans la table Genre_Utilisateur
+            cursor.execute(f"""
+                INSERT INTO Genre_Utilisateur (ID_Genre, ID_User) 
+                VALUES ({preference.genre_id}, {user_id})
+            """)
+            conn.commit()
+            return {"message": "Préférence ajoutée"}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expiré")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Token invalide")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 if __name__ == "__main__":
     import uvicorn

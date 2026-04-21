@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from db import get_connection
 import jwt
 
+SECRET_KEY = "secret"
 app = FastAPI()
 
 
@@ -104,14 +105,15 @@ async def login(user: User):
     """Authentifier un utilisateur."""
     with get_connection() as conn:
         cursor = conn.cursor()
+        if not user.email or not user.password:
+            raise HTTPException(status_code=422, detail="Email et mot de passe sont requis")
         cursor.execute(f"""
             SELECT * FROM Utilisateur 
             WHERE AdresseMail='{user.email}' AND MotDePasse='{user.password}'
         """)
-        c
+        res = cursor.fetchone()
         #si email ou mdp vide on refuse la connexion
-        if not user.email or not user.password:
-            raise HTTPException(status_code=422, detail="Email et mot de passe sont requis")
+        
         if res:
             token = jwt.encode({"sub": user.email}, SECRET_KEY,algorithm="HS256")
             return TokenResponse(access_token=token, token_type="bearer")

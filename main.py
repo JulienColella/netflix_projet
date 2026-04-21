@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from db import get_connection
-
+#import pyjwt
 app = FastAPI()
 
 
@@ -43,18 +43,52 @@ async def get_films(page: int = 1, per_page: int = 10, genre: int | None = None)
 
 
 
-@app.post("/utilisateurs")
+@app.post("/auth/register")
 async def register(user: User):
     """Créer un compte utilisateur."""
     with get_connection() as conn:
         cursor = conn.cursor()
-        # Utilisation des f-strings comme demandé
+        #erreurs de validation : email, pseudo ou mot de passe manquant
+        if not user.email or not user.password or not user.pseudo:
+            raise HTTPException(status_code=422, detail="Email, pseudo et mot de passe sont requis")
+        #si l'adresse mail existe déjà, on refuse l'inscription
+        cursor.execute(f"SELECT * FROM Utilisateur WHERE AdresseMail='{user.email}'")
+        if cursor.fetchone():
+            raise HTTPException(status_code=409, detail="Email déjà utilisé")
+        #si le pseudo existe déjà, on refuse l'inscription
+        cursor.execute(f"SELECT * FROM Utilisateur WHERE Pseudo='{user.pseudo}'")  
+        if cursor.fetchone():
+            raise HTTPException(status_code=409, detail="Pseudo déjà utilisé")
+
+#ajout d'un nouvel utilisateur dans la base de données
         cursor.execute(f"""
             INSERT INTO Utilisateur (AdresseMail, Pseudo, MotDePasse)  
             VALUES('{user.email}', '{user.pseudo}', '{user.password}')
         """)
+#retour d'un JWT pour l'authentification future 
+        #token = pyjwt.encode({"user_id": cursor.lastrowid}, "secret", algorithm="HS256")
         conn.commit()
         return {"message": "Utilisateur créé"}
+
+
+@app.post("/auth/login")
+async def login(user: User):
+    """Authentifier un utilisateur."""
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(f"""
+            SELECT * FROM Utilisateur 
+            WHERE AdresseMail='{user.email}' AND MotDePasse='{user.password}'
+        """)
+        res = cursor.fetchone()
+        #si email ou mdp vide on refuse la connexion
+        if not user.email or not user.password:
+            raise HTTPException(status_code=422, detail="Email et mot de passe sont requis")
+        if res:
+            return {"message": "Connexion réussie", "user_id": res["ID"]}
+        else:
+            raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
+
 
 @app.post("/visionnages")
 async def record_view(v: Visionnage):
@@ -69,7 +103,7 @@ async def record_view(v: Visionnage):
         conn.commit()
         return {"message": "Visionnage enregistré"}
 
-@app.get("/utilisateurs/{id}/historique")
+@app.get("/user/{id}/historique")
 async def get_history(id: int):
     """Voir les films vus par un utilisateur spécifique."""
     with get_connection() as conn:

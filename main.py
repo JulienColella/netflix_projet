@@ -34,12 +34,28 @@ async def get_films(page: int = 1, per_page: int = 10, genre: int | None = None)
     with get_connection() as conn:
         cursor = conn.cursor()
         offset = (page - 1) * per_page
-        if genre is not None:
-            cursor.execute(f"SELECT * FROM Film WHERE Genre_ID={genre} ORDER BY DateSortie DESC LIMIT {per_page} OFFSET {offset}")
-        else:
-            cursor.execute(f"SELECT * FROM Film ORDER BY DateSortie DESC LIMIT {per_page} OFFSET {offset}")
+        
+        # Filtre Genre
+        where_clause = f"WHERE Genre_ID = {genre_id}" if genre_id else ""
+        
+        # Compter le total pour les tests
+        cursor.execute(f"SELECT COUNT(*) as total FROM Film {where_clause}")
+        total = cursor.fetchone()["total"]
+        
+        # Récupérer les données
+        cursor.execute(f"""
+            SELECT * FROM Film {where_clause} 
+            ORDER BY DateSortie DESC LIMIT {per_page} OFFSET {offset}
+        """)
         res = cursor.fetchall()
-        return [dict(row) for row in res]
+        if not res:
+            raise HTTPException(status_code=404, detail="Aucun film trouvé")
+        return {
+            "data": [dict(row) for row in res],
+            "total": total,
+            "page": page,
+            "per_page": per_page
+        }
 
 
 
